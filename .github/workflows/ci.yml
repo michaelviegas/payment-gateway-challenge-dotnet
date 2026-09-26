@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Fail on vulnerable packages
+        run: |
+          dotnet list package --vulnerable --include-transitive | tee vulnerable.txt
+          ! grep -q "has the following vulnerable packages" vulnerable.txt
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Test
+        run: >
+          dotnet test --no-build --configuration Release
+          --logger trx --results-directory TestResults
+          --collect:"XPlat Code Coverage"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults
+
+  container-smoke-test:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start the stack
+        run: docker compose up --build --detach
+
+      - name: Wait for the gateway
+        run: |
+          for attempt in $(seq 1 30); do
+            curl --silent --fail http://localhost:5000/health/live && exit 0
+            sleep 2
+          done
+          docker compose logs payment_gateway
+          exit 1
+
+      - name: Authorize a payment through the bank simulator
+        run: |
+          status=$(curl --silent --output response.json --write-out '%{http_code}' \
+            --header 'Content-Type: application/json' \
+            --data '{"cardNumber":"2222405343248877","expiryMonth":4,"expiryYear":2030,"currency":"GBP","amount":100,"cvv":"123"}' \
+            http://localhost:5000/api/payments)
+          cat response.json
+          test "$status" = 200
+          grep -q '"status":"Authorized"' response.json
+
+      - name: Readiness reports the bank as reachable
+        run: test "$(curl --silent http://localhost:5000/health/ready)" = Healthy
+
+      - name: Show logs
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose down

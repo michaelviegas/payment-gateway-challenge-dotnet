@@ -1,23 +1,20 @@
 using System.Text.Json.Serialization;
 
 using PaymentGateway.Api.Middleware;
+using PaymentGateway.Api.Models;
+using PaymentGateway.Api.Observability;
 using PaymentGateway.Application;
 using PaymentGateway.Infrastructure;
 
-using Serilog;
-
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Host.UseSerilog((context, services, configuration) => configuration
-    .ReadFrom.Configuration(context.Configuration)
-    .ReadFrom.Services(services)
-    .Enrich.FromLogContext());
-
+builder.AddObservability();
 builder.AddApplication();
 builder.Services.AddInfrastructure();
 
 builder.Services
     .AddControllers()
+    .ConfigureApiBehaviorOptions(options => options.InvalidModelStateResponseFactory = RejectedRequestResponse.Create)
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -27,7 +24,7 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
 app.UseMiddleware<CorrelationIdMiddleware>();
-app.UseSerilogRequestLogging();
+app.UseObservability();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 // Configure the HTTP request pipeline.
@@ -40,5 +37,6 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHealthEndpoints();
 
 app.Run();

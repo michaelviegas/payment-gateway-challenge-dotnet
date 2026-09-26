@@ -1,6 +1,4 @@
-﻿using System.Net;
-
-namespace PaymentGateway.Api.Middleware;
+﻿namespace PaymentGateway.Api.Middleware;
 
 public class ExceptionHandlingMiddleware
 {
@@ -20,17 +18,6 @@ public class ExceptionHandlingMiddleware
         try
         {
             await _next(context);
-        }
-        catch (HttpRequestException ex) when (
-            ex.StatusCode == HttpStatusCode.ServiceUnavailable)
-        {
-            _logger.LogError(
-                ex,
-                "Bank simulator is unavailable. {Method} {Path}",
-                context.Request.Method, context.Request.Path);
-
-            context.Response.StatusCode =
-                StatusCodes.Status503ServiceUnavailable;
         }
         catch (Exception ex)
         {

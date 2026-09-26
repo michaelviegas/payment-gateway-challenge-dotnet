@@ -33,10 +33,9 @@ internal sealed class ValidationPipelineBehavior<TRequest, TResponse>(
             return [];
         }
 
-        var context = new ValidationContext<TRequest>(request);
-
+        // Each validator gets its own context: a shared one accumulates every validator's failures into each result.
         var validationResults = await Task.WhenAll(
-            validators.Select(validator => validator.ValidateAsync(context)));
+            validators.Select(validator => validator.ValidateAsync(new ValidationContext<TRequest>(request))));
 
         var validationFailures = validationResults
             .Where(validationResult => !validationResult.IsValid)

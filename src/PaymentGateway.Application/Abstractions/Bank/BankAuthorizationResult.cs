@@ -1,4 +1,4 @@
-﻿using PaymentGateway.Domain.Enums;
+using PaymentGateway.Domain.Enums;
 
 namespace PaymentGateway.Application.Abstractions.Bank;
 

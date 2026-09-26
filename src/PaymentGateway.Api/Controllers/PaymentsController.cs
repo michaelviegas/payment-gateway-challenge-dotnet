@@ -10,19 +10,17 @@ namespace PaymentGateway.Api.Controllers;
 [Route("api/[controller]")]
 [ApiController]
 [Produces("application/json")]
-public class PaymentsController(ISender sender) : Controller
+public class PaymentsController(ISender sender) : ControllerBase
 {
     [HttpPost]
     [Consumes("application/json")]
     [ProducesResponseType(typeof(PostPaymentResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<PostPaymentResponse>> PostPaymentAsync(
         [FromBody] PostPaymentRequest request,
-        [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey,
         CancellationToken cancellationToken)
     {
-        var result = await sender.Send(request.ToCommand(idempotencyKey), cancellationToken);
+        var result = await sender.Send(request.ToCommand(), cancellationToken);
 
         if (result.IsFailure)
         {
@@ -56,14 +54,9 @@ public class PaymentsController(ISender sender) : Controller
             return NotFound();
         }
 
-        if (error == ApplicationErrors.PaymentRejected || error == ApplicationErrors.IdempotencyKeyMissing)
+        if (error == ApplicationErrors.BankUnavailable)
         {
             return Problem(error, StatusCodes.Status400BadRequest);
-        }
-
-        if (error == ApplicationErrors.IdempotentRequestInProgress)
-        {
-            return Problem(error, StatusCodes.Status409Conflict);
         }
 
         foreach (var validationError in errors)
@@ -71,7 +64,9 @@ public class PaymentsController(ISender sender) : Controller
             ModelState.AddModelError(validationError.Value.Code, validationError.Value.Message);
         }
 
-        return ValidationProblem(ModelState);
+        var rejected = ApplicationErrors.PaymentRejected.Value;
+
+        return ValidationProblem(title: rejected.Code, detail: rejected.Message, modelStateDictionary: ModelState);
     }
 
     private ObjectResult Problem(Error error, int statusCode) =>

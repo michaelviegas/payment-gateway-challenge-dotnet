@@ -6,9 +6,14 @@ namespace PaymentGateway.Application.Commands.PostPayment
     {
         private static readonly HashSet<string> SupportedCurrencies = new(StringComparer.Ordinal) { "GBP", "USD", "EUR" };
 
-        public PostPaymentValidator()
+        private readonly TimeProvider _timeProvider;
+
+        public PostPaymentValidator(TimeProvider timeProvider)
         {
+            _timeProvider = timeProvider;
+
             RuleFor(request => request.CardNumber)
+                .Cascade(CascadeMode.Stop)
                 .NotEmpty()
                 .WithMessage("Card number is required.")
                 .Length(14, 19)
@@ -30,6 +35,7 @@ namespace PaymentGateway.Application.Commands.PostPayment
                 .WithMessage("Card has expired.");
 
             RuleFor(request => request.Currency)
+                .Cascade(CascadeMode.Stop)
                 .NotEmpty()
                 .WithMessage("Currency is required.")
                 .Length(3)
@@ -42,6 +48,7 @@ namespace PaymentGateway.Application.Commands.PostPayment
                 .WithMessage("Amount must be greater than zero.");
 
             RuleFor(request => request.Cvv)
+                .Cascade(CascadeMode.Stop)
                 .NotEmpty()
                 .WithMessage("CVV is required.")
                 .Length(3, 4)
@@ -52,7 +59,7 @@ namespace PaymentGateway.Application.Commands.PostPayment
 
         private bool CurrentOrFutureDate(PostPaymentCommand request, int expiryYear)
         {
-            var now = DateTime.UtcNow; 
+            var now = _timeProvider.GetUtcNow();
             return expiryYear > now.Year || expiryYear == now.Year && request.ExpiryMonth >= now.Month;
         }
 

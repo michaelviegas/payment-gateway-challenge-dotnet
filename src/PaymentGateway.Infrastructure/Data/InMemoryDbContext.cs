@@ -1,6 +1,5 @@
 using PaymentGateway.Application.Abstractions.Data;
 using PaymentGateway.Domain;
-using PaymentGateway.Domain.DomainEvents;
 
 namespace PaymentGateway.Infrastructure.Data;
 
@@ -31,19 +30,9 @@ internal sealed class InMemoryDbContext(InMemoryPaymentStore store) : IAppDbCont
 
         if (_added.Count == 0 && _modified.Count == 0 && _removed.Count == 0) return;
 
-        var entities = _added.Values.Concat(_modified.Values).ToList<IHasDomainEvents>();
-        var domainEvents = entities.SelectMany(entity => entity.DomainEvents).ToList();
-
         store.Commit(_added.Values, _modified.Values, _removed.Values);
         _added.Clear();
         _modified.Clear();
         _removed.Clear();
-
-        entities.ForEach(entity => entity.ClearDomainEvents());
-
-        foreach (var domainEvent in domainEvents)
-        {
-            // Just for demo purposes. Placeholder to publish the domain events.
-        }
     }
 }

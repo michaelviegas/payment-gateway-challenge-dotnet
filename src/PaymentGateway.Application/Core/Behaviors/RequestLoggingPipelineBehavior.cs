@@ -5,7 +5,8 @@ using PaymentGateway.Application.Core.Primitives;
 namespace PaymentGateway.Application.Core.Behaviors;
 
 internal sealed class RequestLoggingPipelineBehavior<TRequest, TResponse>(
-    ILogger<RequestLoggingPipelineBehavior<TRequest, TResponse>> logger)
+    ILogger<RequestLoggingPipelineBehavior<TRequest, TResponse>> logger,
+    TimeProvider timeProvider)
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
     where TResponse : Result
@@ -15,22 +16,24 @@ internal sealed class RequestLoggingPipelineBehavior<TRequest, TResponse>(
         logger.LogInformation(
             "Starting Request {@RequestName}, {@DateTimeUtc}",
             typeof(TRequest).Name,
-            DateTime.UtcNow);
+            timeProvider.GetUtcNow());
 
         var result = await next(request, cancellationToken);
 
+        // Failures here are expected outcomes (validation, not found, bank rejection), not faults.
+        // Exceptions are logged at Error by the API's exception middleware.
         if (result.IsFailure)
         {
-            logger.LogError("Request Failure {@RequestName}, {@Errors}, {@DateTimeUtc}",
+            logger.LogWarning("Request Failure {@RequestName}, {@Errors}, {@DateTimeUtc}",
                 typeof(TRequest).Name,
                 result.Errors,
-                DateTime.UtcNow);
+                timeProvider.GetUtcNow());
         }
 
         logger.LogInformation(
             "Completed Request {@RequestName}, {@DateTimeUtc}",
             typeof(TRequest).Name,
-            DateTime.UtcNow);
+            timeProvider.GetUtcNow());
 
         return result;
     }

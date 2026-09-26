@@ -13,5 +13,5 @@ public class PostPaymentRequest
     public int Amount { get; set; }
     public string Cvv { get; set; } = string.Empty;
 
-    internal PostPaymentCommand ToCommand(string? idempotencyKey) => new(idempotencyKey ?? string.Empty, CardNumber, ExpiryMonth, ExpiryYear, Currency, Amount, Cvv);
+    internal PostPaymentCommand ToCommand() => new(CardNumber, ExpiryMonth, ExpiryYear, Currency, Amount, Cvv);
 }
