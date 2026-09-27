@@ -5,18 +5,14 @@ using PaymentGateway.Application.Core.Primitives;
 namespace PaymentGateway.Application.Core.Behaviors;
 
 internal sealed class RequestLoggingPipelineBehavior<TRequest, TResponse>(
-    ILogger<RequestLoggingPipelineBehavior<TRequest, TResponse>> logger,
-    TimeProvider timeProvider)
+    ILogger<RequestLoggingPipelineBehavior<TRequest, TResponse>> logger)
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
     where TResponse : Result
 {
     public async ValueTask<TResponse> Handle(TRequest request, MessageHandlerDelegate<TRequest, TResponse> next, CancellationToken cancellationToken)
     {
-        logger.LogInformation(
-            "Starting Request {@RequestName}, {@DateTimeUtc}",
-            typeof(TRequest).Name,
-            timeProvider.GetUtcNow());
+        logger.LogInformation("Starting request {RequestName}", typeof(TRequest).Name);
 
         var result = await next(request, cancellationToken);
 
@@ -24,16 +20,15 @@ internal sealed class RequestLoggingPipelineBehavior<TRequest, TResponse>(
         // Exceptions are logged at Error by the API's exception middleware.
         if (result.IsFailure)
         {
-            logger.LogWarning("Request Failure {@RequestName}, {@Errors}, {@DateTimeUtc}",
+            // Codes only: they are stable and searchable. Validation messages can quote the
+            // submitted value, which may be card data.
+            logger.LogWarning(
+                "Request {RequestName} failed with {ErrorCodes}",
                 typeof(TRequest).Name,
-                result.Errors,
-                timeProvider.GetUtcNow());
+                string.Join(", ", result.Errors.Select(error => error.Value.Code)));
         }
 
-        logger.LogInformation(
-            "Completed Request {@RequestName}, {@DateTimeUtc}",
-            typeof(TRequest).Name,
-            timeProvider.GetUtcNow());
+        logger.LogInformation("Completed request {RequestName}", typeof(TRequest).Name);
 
         return result;
     }

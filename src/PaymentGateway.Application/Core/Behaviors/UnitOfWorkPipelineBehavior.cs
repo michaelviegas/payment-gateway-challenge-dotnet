@@ -9,8 +9,7 @@ namespace PaymentGateway.Application.Core.Behaviors;
 
 internal sealed class UnitOfWorkPipelineBehavior<TRequest, TResponse>(
     IUnitOfWork unitOfWork,
-    ILogger<UnitOfWorkPipelineBehavior<TRequest, TResponse>> logger,
-    TimeProvider timeProvider) : IPipelineBehavior<TRequest, TResponse>
+    ILogger<UnitOfWorkPipelineBehavior<TRequest, TResponse>> logger) : IPipelineBehavior<TRequest, TResponse>
     where TRequest : Abstractions.Messaging.IBaseCommand
     where TResponse : Result
 {
@@ -22,10 +21,7 @@ internal sealed class UnitOfWorkPipelineBehavior<TRequest, TResponse>(
         {
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            logger.LogInformation(
-                "unitOfWork.SaveChangesAsync {@RequestName}, {@DateTimeUtc}",
-                typeof(TRequest).Name,
-                timeProvider.GetUtcNow());
+            logger.LogInformation("Saved changes for {RequestName}", typeof(TRequest).Name);
         }
 
         return commandResponse;

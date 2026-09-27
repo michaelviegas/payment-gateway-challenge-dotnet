@@ -21,6 +21,7 @@ services:
       Bank__BaseUrl: http://bank_simulator:8080
       OTEL_EXPORTER_OTLP_ENDPOINT: http://observability:18889
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_EXPORTER_OTLP_HEADERS: x-otlp-api-key=local-dev-key
     depends_on:
       - bank_simulator
       - observability
@@ -31,5 +32,19 @@ services:
     image: mcr.microsoft.com/dotnet/aspire-dashboard:9.0
     ports:
       - "18888:18888"
+      # OTLP, so the API run from an IDE on the host can export here too.
+      - "18889:18889"
+    # The dashboard encrypts page state kept in the browser with keys stored in the container.
+    # Persisting them stops open tabs failing to load after the container is recreated. Root
+    # because the volume is root-owned and the image's default user can't write to it.
+    user: root
+    volumes:
+      - dashboard_keys:/root/.aspnet/DataProtection-Keys
     environment:
-      DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
+      # UI stays open for local use; OTLP ingestion requires the key sent by payment_gateway.
+      Dashboard__Frontend__AuthMode: Unsecured
+      Dashboard__Otlp__AuthMode: ApiKey
+      Dashboard__Otlp__PrimaryApiKey: local-dev-key
+
+volumes:
+  dashboard_keys:

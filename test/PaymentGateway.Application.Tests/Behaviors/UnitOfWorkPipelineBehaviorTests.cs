@@ -37,8 +37,7 @@ public sealed class UnitOfWorkPipelineBehaviorTests
     {
         var behavior = new UnitOfWorkPipelineBehavior<PostPaymentCommand, Result<PostPaymentResponse>>(
             _unitOfWork,
-            NullLogger<UnitOfWorkPipelineBehavior<PostPaymentCommand, Result<PostPaymentResponse>>>.Instance,
-            TestCommands.Clock());
+            NullLogger<UnitOfWorkPipelineBehavior<PostPaymentCommand, Result<PostPaymentResponse>>>.Instance);
 
         return await behavior.Handle(
             TestCommands.ValidPostPayment(),

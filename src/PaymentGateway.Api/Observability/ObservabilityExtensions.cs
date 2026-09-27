@@ -36,10 +36,15 @@ internal static class ObservabilityExtensions
     public static WebApplication UseObservability(this WebApplication app)
     {
         app.UseSerilogRequestLogging(options =>
+        {
+            // Without this the middleware writes to the static Log.Logger, which AddLogging
+            // deliberately leaves unset, so request completion events would be dropped.
+            options.Logger = app.Services.GetRequiredService<Serilog.ILogger>();
             options.GetLevel = (context, _, exception) =>
                 exception is not null || context.Response.StatusCode >= StatusCodes.Status500InternalServerError ? LogEventLevel.Error
                 : IsHealthProbe(context) ? LogEventLevel.Verbose
-                : LogEventLevel.Information);
+                : LogEventLevel.Information;
+        });
 
         return app;
     }
@@ -57,7 +62,12 @@ internal static class ObservabilityExtensions
         return app;
     }
 
-    private static void AddLogging(this WebApplicationBuilder builder) =>
+    private static void AddLogging(this WebApplicationBuilder builder)
+    {
+        // Serilog writes the console output itself. Removing the default providers leaves
+        // OpenTelemetry's as the only one it forwards to, which exports logs over OTLP.
+        builder.Logging.ClearProviders();
+
         builder.Host.UseSerilog((context, services, configuration) =>
         {
             configuration
@@ -78,13 +88,18 @@ internal static class ObservabilityExtensions
         },
         // Each host keeps its own logger instead of replacing the process-wide Log.Logger,
         // so several hosts in one process (integration tests) don't log into each other.
-        preserveStaticLogger: true);
+        preserveStaticLogger: true,
+        writeToProviders: true);
+    }
 
     private static void AddOpenTelemetry(this WebApplicationBuilder builder)
     {
         var openTelemetry = builder.Services
             .AddOpenTelemetry()
-            .ConfigureResource(resource => resource.AddService(ServiceName))
+            // No generated instance id: a new random one per start makes every restart show up as
+            // a separate resource. Set service.instance.id via OTEL_RESOURCE_ATTRIBUTES if needed.
+            .ConfigureResource(resource => resource.AddService(ServiceName, autoGenerateServiceInstanceId: false))
+            .WithLogging(_ => { }, options => options.IncludeFormattedMessage = true)
             .WithTracing(tracing => tracing
                 .AddAspNetCoreInstrumentation(options => options.Filter = context => !IsHealthProbe(context))
                 .AddHttpClientInstrumentation())
