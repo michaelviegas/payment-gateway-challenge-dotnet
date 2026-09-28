@@ -138,7 +138,7 @@ Rejections use RFC 7807 problem details.
 
 - **Rejected** is represented by `400 Bad Request` with the title `Payment.Rejected`, not by a status in the body. Nothing is stored, so a rejected payment can't be retrieved later.
 - Invalid input is rejected before the bank is called. The response has one entry per failing field, and one message per field: the first rule that fails.
-- A body that can't be read (malformed JSON, or a value of the wrong type such as `"amount": 10.5`) gets the same `Payment.Rejected` response, keyed by the field name. The serializer's own message is replaced so .NET type names aren't exposed.
+- A body that can't be read (malformed JSON, or a value of the wrong type such as `"amount": 10.5`) gets ASP.NET's default `400` validation problem, keyed by JSON path (`$.amount`). Serializer messages are turned off (`AllowInputFormatterExceptionMessages = false`), so .NET type names aren't exposed.
 - If the bank is unavailable (the simulator's `503` for cards ending in `0`, a timeout, an unreadable response), the payment is also rejected. The bank client logs the reason as a warning, with the card masked to its last four digits.
 - Unhandled errors return `500` with an empty body. The exception is logged with the correlation id, and no details reach the caller.
 

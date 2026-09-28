@@ -1,7 +1,6 @@
 using System.Text.Json.Serialization;
 
 using PaymentGateway.Api.Middleware;
-using PaymentGateway.Api.Models;
 using PaymentGateway.Api.Observability;
 using PaymentGateway.Application;
 using PaymentGateway.Infrastructure;
@@ -14,8 +13,12 @@ builder.Services.AddInfrastructure();
 
 builder.Services
     .AddControllers()
-    .ConfigureApiBehaviorOptions(options => options.InvalidModelStateResponseFactory = RejectedRequestResponse.Create)
-    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+    .AddJsonOptions(options =>
+    {
+        // Keeps serializer messages, which name .NET types, out of 400 responses.
+        options.AllowInputFormatterExceptionMessages = false;
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
